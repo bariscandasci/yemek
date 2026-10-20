@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yemekhane · Aylık Menü</title>
+  <meta name="description" content="Aylık yemek listesini Excel’den yükleyin. Bugünün menüsü ve ayın tamamı tarayıcınızda kalsın." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231e3a30'/%3E%3Cpath d='M18 28h28c1 8-4 16-14 16S17 36 18 28z' fill='%23f3eee6'/%3E%3Cpath d='M24 22c0-3 2-6 8-6s8 3 8 6' fill='none' stroke='%23e39b2b' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,620&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            paper: '#f3eee6',
+            card: '#fffdf9',
+            ink: '#1c1914',
+            moss: '#1e3a30',
+            leaf: '#2f5b48',
+            saffron: '#e39b2b',
+            clay: '#b85a32',
+            mist: '#6e675e',
+          },
+          fontFamily: {
+            sans: ['Outfit', 'system-ui', 'sans-serif'],
+            display: ['Fraunces', 'Georgia', 'serif'],
+          },
+          boxShadow: {
+            card: '0 30px 70px -42px rgba(30, 58, 48, 0.55)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      background-color: #f3eee6;
+      background-image:
+        radial-gradient(ellipse at 0% -10%, rgba(227, 155, 43, 0.18), transparent 42%),
+        radial-gradient(ellipse at 100% 0%, rgba(47, 91, 72, 0.12), transparent 34%);
+    }
+    .modal { display: none; }
+    .modal.is-open { display: flex; }
+    .toast {
+      transform: translateY(1rem);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .toast { transition: none; }
+    }
+  </style>
+</head>
+<body class="min-h-screen font-sans text-ink antialiased">
+  <header class="bg-moss text-[#f6f1e7]">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+      <a href="#bugun" class="flex items-center gap-3">
+        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-[#f6f1e7] text-moss">
+          <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true">
+            <path d="M14 30h36c1.2 10-6 20-18 20S12.8 40 14 30z" fill="currentColor"/>
+            <path d="M22 24c0-4 3-8 10-8s10 4 10 8" fill="none" stroke="#e39b2b" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span>
+          <span class="block font-display text-2xl leading-none">Yemekhane</span>
+          <span class="mt-1 block text-xs tracking-[0.16em] text-[#f6f1e7]/70">AYLIK MENÜ</span>
+        </span>
+      </a>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" data-action="template" class="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-[#f6f1e7] hover:bg-white/10">Şablon</button>
+        <button type="button" data-action="open-upload" class="rounded-full bg-saffron px-4 py-2 text-sm font-semibold text-ink hover:brightness-105">Menü yükle</button>
+        <button type="button" id="clear-btn" data-action="clear" class="hidden rounded-full px-4 py-2 text-sm font-medium text-[#f6f1e7]/80 hover:bg-white/10">Menüyü sil</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <p id="file-meta" class="mb-4 min-h-5 text-sm text-mist"></p>
+    <div id="today-root"></div>
+
+    <section id="ay" class="mt-10">
+      <div class="mb-4 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 id="month-label" class="font-display text-4xl leading-none"></h2>
+          <p id="month-stats" class="mt-2 text-sm text-mist"></p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex rounded-full bg-white p-1 ring-1 ring-black/5">
+            <button type="button" id="view-calendar" data-action="view" data-view="calendar" class="rounded-full px-3 py-1.5 text-sm font-medium">Takvim</button>
+            <button type="button" id="view-list" data-action="view" data-view="list" class="rounded-full px-3 py-1.5 text-sm font-medium">Liste</button>
+          </div>
+          <div class="flex items-center rounded-full bg-white p-1 ring-1 ring-black/5">
+            <button type="button" data-action="shift-month" data-delta="-1" class="grid h-9 w-9 place-items-center rounded-full hover:bg-paper" aria-label="Önceki ay">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" data-action="jump-today" class="px-3 text-sm font-medium">Bugün</button>
+            <button type="button" data-action="shift-month" data-delta="1" class="grid h-9 w-9 place-items-center rounded-full hover:bg-paper" aria-label="Sonraki ay">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="month-body"></div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal fixed inset-0 z-50 items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button type="button" class="absolute inset-0 bg-[#1c1914]/55" data-action="close-modal" aria-label="Kapat"></button>
+    <div data-modal-panel class="relative w-full max-w-lg rounded-[28px] bg-card p-6 shadow-card ring-1 ring-black/5 sm:p-8">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold tracking-[0.16em] text-clay">EXCEL</p>
+          <h2 id="modal-title" class="mt-1 font-display text-3xl">Aylık listeyi yükle</h2>
+        </div>
+        <button type="button" data-action="close-modal" class="grid h-9 w-9 place-items-center rounded-full hover:bg-paper" aria-label="Kapat">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="mt-3 text-sm leading-6 text-mist">Dosya bu tarayıcıda saklanır, bir sunucuya gönderilmez. Yeni yükleme eski menünün yerini alır.</p>
+      <label id="dropzone" for="file-input" class="mt-5 flex cursor-pointer flex-col items-center rounded-3xl border border-dashed border-moss/30 bg-paper px-6 py-10 text-center">
+        <span class="font-display text-2xl">.xlsx dosyasını bırakın</span>
+        <span class="mt-2 text-sm text-mist">veya seçmek için tıklayın · .xls de olur</span>
+        <input id="file-input" type="file" accept=".xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="sr-only" />
+      </label>
+      <div class="mt-5 rounded-2xl bg-paper px-4 py-3 text-sm leading-6 text-mist">
+        <p class="font-medium text-ink">Beklenen sütunlar</p>
+        <p class="mt-1">Tarih, Çorba, Ana Yemek, Yardımcı Yemek, Salata, Tatlı. İsteğe bağlı Öğün sütunu Kahvaltı, Öğle ve Akşamı ayırır.</p>
+        <p class="mt-1">Tarih <span class="text-ink">20.10.2026</span> biçiminde, Excel tarih hücresi ya da üstte ay yazıyorsa gün numarası olabilir.</p>
+        <button type="button" data-action="template" class="mt-2 font-medium text-leaf underline decoration-leaf/30 underline-offset-2">Örnek şablonu indir</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast fixed left-1/2 top-20 z-50 max-w-md -translate-x-1/2 rounded-full bg-moss px-5 py-3 text-center text-sm text-[#f6f1e7] shadow-card" role="status"></div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script id="app">
+    (() => {
+      const STORAGE_KEY = 'yemekhane.menu.v1';
+      const VIEW_KEY = 'yemekhane.view';
+      const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+      const MONTHS_FOLDED = ['ocak', 'subat', 'mart', 'nisan', 'mayis', 'haziran', 'temmuz', 'agustos', 'eylul', 'ekim', 'kasim', 'aralik'];
+      const WEEKDAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+      const WEEKDAYS_SHORT = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+      const WEEKDAY_FOLDED = ['pazartesi', 'sali', 'carsamba', 'persembe', 'cuma', 'cumartesi', 'pazar'];
+      const DATE_HEADERS = new Set(['tarih', 'date', 'tarih gun', 'menu tarihi', 'yemek tarihi']);
+      const PERIOD_HEADERS = new Set(['ogun', 'ogun adi', 'servis', 'meal', 'ogun turu']);
+      const SKIP_HEADERS = new Set(['sira', 'sira no', 'no', '#', 's.no', 'sn', 'gun adi', 'haftanin gunu', 'hafta gunu', 'aciklama', 'not', 'dipnot']);
+      const FOOD_HINTS = ['corba', 'ana yemek', 'anayemek', 'yardimci', 'yan yemek', 'pilav', 'makarna', 'salata', 'tatli', 'meyve', 'icecek', 'ayran', 'diyet', 'kahvalti', 'ogle', 'aksam', 'yemek', 'meze', 'sebze', 'garnitur', 'kalori', 'soup', 'dessert', 'salad', 'drink', 'lunch', 'dinner', 'main'];
+      const PERIODS = [['kahvalti', 'Kahvaltı'], ['ogle', 'Öğle'], ['aksam', 'Akşam'], ['sahur', 'Sahur'], ['iftar', 'İftar']];
+      const PERIOD_RANK = { Kahvaltı: 1, Öğle: 2, Akşam: 3, Sahur: 4, İftar: 5 };
+      const CLOSED = new Set(['kapali', 'yok', 'tatil', 'servis yok', 'hizmet yok', '-', '—', '–', 'x', 'xx']);
+      const LUNCH = [
+        ['Mercimek Çorbası', 'Izgara Tavuk', 'Şehriyeli Pirinç Pilavı', 'Mevsim Salata', 'Sütlaç'],
+        ['Ezogelin Çorbası', 'Karnıyarık', 'Bulgur Pilavı', 'Cacık', 'Kemalpaşa'],
+        ['Yayla Çorbası', 'Etli Kuru Fasulye', 'Pirinç Pilavı', 'Turşu', 'Revani'],
+        ['Domates Çorbası', 'Fırın Köfte', 'Spagetti', 'Çoban Salata', 'Meyve'],
+        ['Tarhana Çorbası', 'Tavuk Sote', 'Bulgur Pilavı', 'Yoğurt', 'Baklava'],
+        ['Şehriye Çorbası', 'Sebzeli Musakka', 'Erişte', 'Mevsim Salata', 'Muhallebi'],
+        ['Ezogelin Çorbası', 'İzmir Köfte', 'Pirinç Pilavı', 'Cacık', 'Helva'],
+        ['Düğün Çorbası', 'Balık Izgara', 'Patates Püresi', 'Roka Salata', 'Ayva Tatlısı'],
+      ];
+      const DINNER = [
+        ['Domates Çorbası', 'Tavuk Şiş', 'Bulgur Pilavı', 'Çoban Salata', 'Meyve'],
+        ['Mercimek Çorbası', 'Kuru Fasulye', 'Pirinç Pilavı', 'Yoğurt', 'Kemalpaşa'],
+        ['Yayla Çorbası', 'Sebze Graten', 'Erişte', 'Mevsim Salata', 'Sütlaç'],
+        ['Tarhana Çorbası', 'Köfte', 'Bulgur Pilavı', 'Cacık', 'Revani'],
+      ];
+
+      const state = {
+        menu: null,
+        view: 'calendar',
+        cursor: null,
+        selected: null,
+        confirmClear: false,
+      };
+
+      function fold(value) {
+        return String(value ?? '')
+          .replace(/\u00a0/g, ' ')
+          .toLocaleLowerCase('tr-TR')
+          .replace(/ı/g, 'i')
+          .replace(/ğ/g, 'g')
+          .replace(/ü/g, 'u')
+          .replace(/ş/g, 's')
+          .replace(/ö/g, 'o')
+          .replace(/ç/g, 'c')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function esc(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[ch]));
+      }
+
+      function cellString(value) {
+        if (value == null || value instanceof Date) return '';
+        return String(value).replace(/\u00a0/g, ' ').trim();
+      }
+
+      function pad(n) { return String(n).padStart(2, '0'); }
+
+      function isoFromParts(y, m, d) { return `${y}-${pad(m)}-${pad(d)}`; }
+
+      function todayISO() {
+        const now = new Date();
+        return isoFromParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      }
+
+      function parseISO(iso) {
+        const [y, m, d] = iso.split('-').map(Number);
+        return { y, m, d, date: new Date(y, m - 1, d) };
+      }
+
+      function validISO(y, m, d) {
+        if (!y || m < 1 || m > 12 || d < 1 || d > 31) return null;
+        const date = new Date(y, m - 1, d);
+        if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null;
+        return isoFromParts(y, m, d);
+      }
+
+      function isDayNumber(value) {
+        if (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 31) return true;
+        return /^\d{1,2}$/.test(cellString(value)) && Number(cellString(value)) >= 1 && Number(cellString(value)) <= 31;
+      }
+
+      function dayNumberOf(value) {
+        return typeof value === 'number' ? value : Number(cellString(value));
+      }
+
+      function looksLikeDate(value) {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) return true;
+        if (typeof value === 'number' && value > 31 && value < 80000) return true;
+        const text = cellString(value);
+        if (/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/.test(text)) return true;
+        if (/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/.test(text)) return true;
+        const folded = fold(text);
+        return MONTHS_FOLDED.some((name) => new RegExp(`\\b${name}\\b`).test(folded)) && /\d/.test(folded);
+      }
+
+      function excelSerialToParts(serial) {
+        if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
+          const code = XLSX.SSF.parse_date_code(serial);
+          if (code && code.y) return { y: code.y, m: code.m, d: code.d };
+        }
+        const utc = new Date(Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000);
+        return { y: utc.getUTCFullYear(), m: utc.getUTCMonth() + 1, d: utc.getUTCDate() };
+      }
+
+      function parseDateValue(value, ctx) {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+          return isoFromParts(value.getFullYear(), value.getMonth() + 1, value.getDate());
+        }
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          if (value > 31 && value < 80000) {
+            const parts = excelSerialToParts(value);
+            if (parts.y >= 1990 && parts.y <= 2100) return validISO(parts.y, parts.m, parts.d);
+          }
+          if (isDayNumber(value) && ctx && ctx.year && ctx.month) return validISO(ctx.year, ctx.month, value);
+          return null;
+        }
+        const text = cellString(value);
+        if (!text) return null;
+        let match = text.match(/(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+        if (match) return validISO(+match[1], +match[2], +match[3]);
+        match = text.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+        if (match) {
+          let day = +match[1];
+          let month = +match[2];
+          let year = +match[3];
+          if (year < 100) year += year >= 70 ? 1900 : 2000;
+          if (month > 12 && day <= 12) [day, month] = [month, day];
+          return validISO(year, month, day);
+        }
+        const folded = fold(text);
+        const monthIndex = MONTHS_FOLDED.findIndex((name) => new RegExp(`\\b${name}\\b`).test(folded));
+        if (monthIndex >= 0) {
+          const yearMatch = folded.match(/\b(20\d{2})\b/);
+          const dayMatch = folded.match(/\b(\d{1,2})\b/);
+          if (dayMatch) {
+            const year = yearMatch ? +yearMatch[1] : ctx && ctx.year;
+            if (!year) return null;
+            return validISO(year, monthIndex + 1, +dayMatch[1]);
+          }
+        }
+        if (isDayNumber(value) && ctx && ctx.year && ctx.month) return validISO(ctx.year, ctx.month, dayNumberOf(value));
+        return null;
+      }
+
+      function isEmptyRow(row) {
+        return !(row || []).some((cell) => cellString(cell) || cell instanceof Date || typeof cell === 'number');
+      }
+
+      function isNoteRow(row) {
+        const filled = (row || []).map(cellString).filter(Boolean);
+        if (filled.length !== 1) return false;
+        const folded = fold(filled[0]);
+        return folded.length > 40 || /^(not|aciklama|dipnot)\b/.test(folded);
+      }
+
+      function isClosedToken(value) {
+        return CLOSED.has(fold(cellString(value)));
+      }
+
+      function mealName(value) {
+        if (value == null || value instanceof Date) return '';
+        if (typeof value === 'number') {
+          return Number.isInteger(value) ? String(value) : String(Math.round(value * 10) / 10);
+        }
+        return cellString(value).replace(/\s+/g, ' ').trim();
+      }
+
+      function matchesHint(folded, hint) {
+        const pattern = hint.replace(/\s+/g, '\\s+');
+        return new RegExp(`(?:^|\\s)${pattern}(?:\\s|$)`).test(folded);
+      }
+
+      function headerFoodScore(row) {
+        let score = 0;
+        for (const cell of row || []) {
+          const folded = fold(cellString(cell));
+          if (!folded || folded.length > 32) continue;
+          if (DATE_HEADERS.has(folded) || folded === 'gun' || folded === 'tarih' || folded.startsWith('tarih')) score += 3;
+          if (PERIOD_HEADERS.has(folded)) score += 2;
+          if (FOOD_HINTS.some((hint) => matchesHint(folded, hint))) score += 2;
+        }
+        return score;
+      }
+
+      function matrixDateScore(row) {
+        let score = 0;
+        for (const cell of (row || []).slice(1)) {
+          if (looksLikeDate(cell) || isDayNumber(cell)) score += 1;
+        }
+        return score;
+      }
+
+      function chooseHeader(rows) {
+        let column = null;
+        let matrix = null;
+        const limit = Math.min(rows.length, 30);
+        for (let i = 0; i < limit; i += 1) {
+          const row = rows[i] || [];
+          const matrixScore = matrixDateScore(row);
+          if (matrixScore >= 4 && (!matrix || matrixScore > matrix.score)) {
+            matrix = { index: i, mode: 'matrix', score: matrixScore, headerless: false };
+          }
+          const hasFullDate = row.some((cell) => looksLikeDate(cell) && !isDayNumber(cell));
+          const food = headerFoodScore(row);
+          if (!column && food >= 3 && !hasFullDate) {
+            column = { index: i, mode: 'column', score: food, headerless: false };
+          }
+        }
+        if (column && matrix) return matrix.index < column.index ? matrix : column;
+        return column || matrix;
+      }
+
+      function findFallback(rows) {
+        for (let i = 0; i < rows.length; i += 1) {
+          if ((rows[i] || []).some((cell) => looksLikeDate(cell))) {
+            return { index: i, mode: 'column', headerless: true };
+          }
+        }
+        let width = 0;
+        rows.slice(0, 20).forEach((row) => { width = Math.max(width, (row || []).length); });
+        for (let c = 0; c < width; c += 1) {
+          let count = 0;
+          let start = -1;
+          for (let r = 0; r < rows.length; r += 1) {
+            if (isDayNumber((rows[r] || [])[c])) {
+              if (start < 0) start = r;
+              count += 1;
+            }
+          }
+          if (count >= 5) return { index: start, mode: 'column', headerless: true, dayColumn: c };
+        }
+        return null;
+      }
+
+      function resolveContext(rows, sheetName, headerIndex) {
+        const chunks = [fold(sheetName || '')];
+        const limit = headerIndex == null ? Math.min(rows.length, 6) : headerIndex + 1;
+        for (let i = 0; i < limit; i += 1) {
+          for (const cell of rows[i] || []) chunks.push(fold(cellString(cell)));
+        }
+        const text = chunks.join(' ');
+        let month = null;
+        let year = null;
+        MONTHS_FOLDED.forEach((name, index) => {
+          if (month == null && new RegExp(`\\b${name}\\b`).test(text)) month = index + 1;
+        });
+        const yearMatch = text.match(/\b(20\d{2})\b/);
+        if (yearMatch) year = +yearMatch[1];
+        return { month, year };
+      }
+
+      function ensureContext(ctx, notes, flag) {
+        const now = new Date();
+        if (!ctx.year) {
+          ctx.year = now.getFullYear();
+          if (!flag.year) notes.push(`Yıl yazılmadığı için ${ctx.year} kullanıldı.`);
+          flag.year = true;
+        }
+        if (!ctx.month) {
+          ctx.month = now.getMonth() + 1;
+          if (!flag.month) notes.push(`Ay yazılmadığı için ${MONTHS[ctx.month - 1]} kullanıldı.`);
+          flag.month = true;
+        }
+        return ctx;
+      }
+
+      function splitPeriod(label) {
+        const raw = cellString(label).replace(/\s+/g, ' ').trim();
+        const folded = fold(raw);
+        for (const [key, pretty] of PERIODS) {
+          const match = folded.match(new RegExp(`^${key}\\b\\s*[-–:/|]*\\s*(.*)$`));
+          if (!match) continue;
+          const parts = raw.split(/\s+/);
+          let taken = 0;
+          let acc = '';
+          while (taken < parts.length) {
+            acc = fold(parts.slice(0, taken + 1).join(' '));
+            if (acc === key) { taken += 1; break; }
+            if (!key.startsWith(acc)) break;
+            taken += 1;
+          }
+          const category = parts.slice(taken).join(' ').replace(/^[-–:/|]+\s*/, '').trim();
+          return { period: pretty, category: category || 'Menü' };
+        }
+        return { period: '', category: raw || 'Yemek' };
+      }
+
+      function normalizePeriod(value) {
+        const raw = cellString(value).replace(/\s+/g, ' ').trim();
+        const folded = fold(raw);
+        if (!folded) return '';
+        for (const [key, pretty] of PERIODS) {
+          if (folded === key || folded.startsWith(`${key} `)) return pretty;
+        }
+        return raw.length > 24 ? raw.slice(0, 24) : raw;
+      }
+
+      function classifyColumn(header, values) {
+        const folded = fold(header);
+        if (SKIP_HEADERS.has(folded)) return 'skip';
+        if (DATE_HEADERS.has(folded) || folded.startsWith('tarih')) return 'date';
+        if (PERIOD_HEADERS.has(folded)) return 'period';
+        const sample = (values || []).filter((value) => value != null && (cellString(value) || value instanceof Date || typeof value === 'number')).slice(0, 12);
+        if (folded === 'gun' || folded === 'gunu' || folded === 'gun no' || !folded) {
+          const weekdays = sample.filter((value) => WEEKDAY_FOLDED.includes(fold(cellString(value)))).length;
+          const dates = sample.filter((value) => looksLikeDate(value) && !isDayNumber(value)).length;
+          const numbers = sample.filter(isDayNumber).length;
+          if (sample.length && dates >= Math.ceil(sample.length / 2)) return 'date';
+          if (sample.length && weekdays >= Math.ceil(sample.length / 2)) return 'skip';
+          if (sample.length && numbers >= Math.ceil(sample.length / 2) && (folded || numbers >= 3)) return 'dayNumber';
+        }
+        return 'meal';
+      }
+
+      function ensureDay(days, iso) {
+        if (!days[iso]) days[iso] = { date: iso, periods: [], closed: false };
+        return days[iso];
+      }
+
+      function addItem(days, iso, periodName, category, name) {
+        const day = ensureDay(days, iso);
+        day.closed = false;
+        let period = day.periods.find((item) => item.name === periodName);
+        if (!period) {
+          period = { name: periodName, items: [] };
+          day.periods.push(period);
+        }
+        period.items.push({ category: category || 'Yemek', name });
+      }
+
+      function finalizeDays(days) {
+        Object.values(days).forEach((day) => {
+          day.periods.forEach((period) => {
+            const seen = new Set();
+            period.items = period.items.filter((item) => {
+              const key = `${fold(item.category)}|${fold(item.name)}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return Boolean(item.name);
+            });
+          });
+          day.periods = day.periods.filter((period) => period.items.length);
+          day.periods.sort((a, b) => (PERIOD_RANK[a.name] || 50) - (PERIOD_RANK[b.name] || 50) || a.name.localeCompare(b.name, 'tr'));
+          if (!day.periods.length) day.closed = true;
+        });
+        return days;
+      }
+
+      function parseColumnar(rows, choice, ctx, notes, flag) {
+        const headerless = Boolean(choice.headerless);
+        const headerRow = headerless ? [] : (rows[choice.index] || []);
+        const dataStart = headerless ? choice.index : choice.index + 1;
+        let width = headerRow.length;
+        rows.slice(dataStart, dataStart + 30).forEach((row) => { width = Math.max(width, (row || []).length); });
+        const samples = Array.from({ length: width }, (_, col) => rows.slice(dataStart, dataStart + 15).map((row) => (row || [])[col]));
+        const kinds = [];
+        if (headerless) {
+          let dateCol = Number.isInteger(choice.dayColumn) ? choice.dayColumn : -1;
+          if (dateCol < 0) {
+            for (let c = 0; c < width; c += 1) {
+              if ((samples[c] || []).some((value) => looksLikeDate(value))) { dateCol = c; break; }
+            }
+          }
+          for (let c = 0; c < width; c += 1) {
+            const weekdays = (samples[c] || []).filter((value) => WEEKDAY_FOLDED.includes(fold(cellString(value)))).length;
+            if (c === dateCol && Number.isInteger(choice.dayColumn)) kinds.push('dayNumber');
+            else if (c === dateCol) kinds.push((samples[c] || []).filter(isDayNumber).length > (samples[c] || []).filter(looksLikeDate).length ? 'dayNumber' : 'date');
+            else if (weekdays > 2) kinds.push('skip');
+            else kinds.push('meal');
+          }
+        } else {
+          for (let c = 0; c < width; c += 1) kinds.push(classifyColumn(headerRow[c], samples[c]));
+          if (!kinds.includes('date') && !kinds.includes('dayNumber')) {
+            const dateCol = samples.findIndex((sample) => sample.some((value) => looksLikeDate(value)));
+            if (dateCol >= 0) kinds[dateCol] = 'date';
+          }
+        }
+
+        const days = {};
+        let skipped = 0;
+        let lastISO = null;
+        for (let r = dataStart; r < rows.length; r += 1) {
+          const row = rows[r] || [];
+          if (isEmptyRow(row) || isNoteRow(row)) continue;
+          if (!headerless && fold(cellString(row[0])) === fold(cellString(headerRow[0])) && headerFoodScore(row) >= 3) continue;
+
+          let iso = null;
+          let rowPeriod = '';
+          const meals = [];
+          let mealCells = 0;
+          let closedHits = 0;
+          for (let c = 0; c < width; c += 1) {
+            const kind = kinds[c];
+            const value = row[c];
+            if (kind === 'skip') continue;
+            if (kind === 'date' || kind === 'dayNumber') {
+              if (kind === 'dayNumber' && isDayNumber(value)) {
+                ensureContext(ctx, notes, flag);
+                iso = parseDateValue(dayNumberOf(value), ctx);
+              } else {
+                const parsed = parseDateValue(value, ctx);
+                if (parsed) iso = parsed;
+              }
+              continue;
+            }
+            if (kind === 'period') {
+              rowPeriod = normalizePeriod(value);
+              continue;
+            }
+            const label = headerless ? `Yemek ${c + 1}` : (headerRow[c] || `Yemek ${c + 1}`);
+            const split = splitPeriod(label);
+            const name = mealName(value);
+            if (!name) continue;
+            mealCells += 1;
+            if (isClosedToken(name)) { closedHits += 1; continue; }
+            meals.push({ period: split.period || rowPeriod, category: split.category, name });
+          }
+
+          if (!iso) {
+            if (meals.length && lastISO) iso = lastISO;
+            else {
+              if ((row || []).some((cell) => cellString(cell))) skipped += 1;
+              continue;
+            }
+          }
+          lastISO = iso;
+          if (!meals.length && mealCells > 0 && closedHits === mealCells) {
+            const day = ensureDay(days, iso);
+            day.closed = true;
+            continue;
+          }
+          meals.forEach((meal) => addItem(days, iso, meal.period, meal.category, meal.name));
+        }
+        return { days, skipped };
+      }
+
+      function parseMatrix(rows, choice, ctx, notes, flag) {
+        const header = rows[choice.index] || [];
+        const dates = header.map((cell) => {
+          if (isDayNumber(cell) && !looksLikeDate(cell)) {
+            ensureContext(ctx, notes, flag);
+            return parseDateValue(dayNumberOf(cell), ctx);
+          }
+          return parseDateValue(cell, ctx);
+        });
+        const days = {};
+        let skipped = 0;
+        let lastCategory = '';
+        for (let r = choice.index + 1; r < rows.length; r += 1) {
+          const row = rows[r] || [];
+          if (isEmptyRow(row) || isNoteRow(row)) continue;
+          let label = cellString(row[0]);
+          if (!label) label = lastCategory;
+          else lastCategory = label;
+          const split = splitPeriod(label);
+          let wrote = false;
+          for (let c = 1; c < row.length; c += 1) {
+            if (!dates[c]) continue;
+            const name = mealName(row[c]);
+            if (!name || isClosedToken(name)) continue;
+            addItem(days, dates[c], split.period, split.category, name);
+            wrote = true;
+          }
+          if (!wrote && !label) skipped += 1;
+        }
+        header.forEach((cell, index) => {
+          if (!dates[index]) return;
+          const column = rows.slice(choice.index + 1).map((row) => (row || [])[index]);
+          const named = column.map(mealName).filter(Boolean);
+          if (named.length && named.every(isClosedToken)) {
+            const day = ensureDay(days, dates[index]);
+            if (!day.periods.length) day.closed = true;
+          }
+        });
+        return { days, skipped };
+      }
+
+      function pickSheet(workbook) {
+        let bestName = workbook.SheetNames[0];
+        let bestCount = -1;
+        workbook.SheetNames.forEach((name) => {
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: null });
+          const count = rows.filter((row) => (row || []).some((cell) => cell != null && String(cell).trim() !== '')).length;
+          if (count > bestCount) {
+            bestName = name;
+            bestCount = count;
+          }
+        });
+        return { name: bestName, sheet: workbook.Sheets[bestName] };
+      }
+
+      function parseWorkbook(workbook) {
+        if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) {
+          return { ok: false, error: 'Dosyada sayfa bulunamadı.' };
+        }
+        const picked = pickSheet(workbook);
+        let rows = XLSX.utils.sheet_to_json(picked.sheet, { header: 1, raw: true, defval: null, blankrows: true });
+        rows = (rows || []).map((row) => (Array.isArray(row) ? row : []));
+        const notes = [];
+        if (rows.length > 1500) {
+          rows = rows.slice(0, 1500);
+          notes.push('İlk 1500 satır okundu.');
+        }
+        const choice = chooseHeader(rows) || findFallback(rows);
+        if (!choice) return { ok: false, error: 'Tarih sütunu veya başlık satırı bulunamadı.' };
+        const ctx = resolveContext(rows, picked.name, choice.index);
+        const flag = { year: false, month: false };
+        const parsed = choice.mode === 'matrix'
+          ? parseMatrix(rows, choice, ctx, notes, flag)
+          : parseColumnar(rows, choice, ctx, notes, flag);
+        const days = finalizeDays(parsed.days);
+        const dayCount = Object.keys(days).length;
+        if (!dayCount) return { ok: false, error: 'Dosyada tarihli yemek satırı bulunamadı.' };
+        return { ok: true, days, skipped: parsed.skipped, notes, dayCount };
+      }
+
+      function loadMenu() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.version !== 1 || !parsed.days) return null;
+          return parsed;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function saveMenu(menu) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(menu));
+        } catch (error) {
+          throw new Error('save-failed');
+        }
+      }
+
+      function nearestDate(days, iso) {
+        const keys = Object.keys(days || {}).sort();
+        return keys.find((key) => key >= iso) || keys[keys.length - 1] || null;
+      }
+
+      function focusMenu(menu) {
+        const today = todayISO();
+        const chosen = menu && menu.days && menu.days[today] ? today : nearestDate(menu && menu.days, today);
+        const point = parseISO(chosen || today);
+        state.cursor = { y: point.y, m: point.m };
+        state.selected = chosen || today;
+      }
+
+      function previewDish(day) {
+        if (!day || day.closed || !day.periods.length) return '';
+        const items = day.periods[0].items;
+        const main = items.find((item) => /ana/.test(fold(item.category))) || items[0];
+        return main ? main.name : '';
+      }
+
+      function formatSavedAt(iso) {
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return '';
+        return new Intl.DateTimeFormat('tr-TR', {
+          day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+        }).format(date);
+      }
+
+      function renderMeals(day, variant) {
+        if (!day) return '<p class="text-lg text-mist">Bu tarihte kayıt yok.</p>';
+        if (day.closed || !day.periods.length) {
+          return '<p class="font-display text-3xl">Yemekhane kapalı</p><p class="mt-2 text-mist">Listede bu gün için servis yok.</p>';
+        }
+        const stacked = variant === 'stack';
+        return day.periods.map((period) => `
+          <section class="${stacked ? 'mb-5' : 'mb-6'} last:mb-0">
+            ${period.name ? `<h3 class="mb-2 text-xs font-semibold tracking-[0.16em] text-clay">${esc(period.name.toLocaleUpperCase('tr-TR'))}</h3>` : ''}
+            <ul>
+              ${period.items.map((item) => stacked ? `
+                <li class="border-b border-black/5 py-2 last:border-0">
+                  <span class="block text-[11px] font-semibold tracking-[0.14em] text-mist">${esc(item.category.toLocaleUpperCase('tr-TR'))}</span>
+                  <span class="mt-0.5 block font-display text-lg leading-snug">${esc(item.name)}</span>
+                </li>
+              ` : `
+                <li class="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 border-b border-black/5 py-2.5 last:border-0 sm:grid-cols-[9.5rem_minmax(0,1fr)]">
+                  <span class="pt-1 text-xs font-semibold tracking-[0.12em] text-mist">${esc(item.category.toLocaleUpperCase('tr-TR'))}</span>
+                  <span class="font-display text-xl leading-snug sm:text-2xl">${esc(item.name)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </section>
+        `).join('');
+      }
+
+      function renderToday() {
+        const today = todayISO();
+        const parts = parseISO(today);
+        const day = state.menu && state.menu.days[today];
+        const loaded = Boolean(state.menu);
+        let body;
+        if (!loaded) {
+          body = `
+            <p class="font-display text-4xl leading-tight">Listenizi ekleyin</p>
+            <p class="mt-3 max-w-xl text-base leading-7 text-mist">Aylık yemek listesini Excel olarak yükleyin. Bugünün yemekleri tarihe göre kendiliğinden burada açılır.</p>
+            <button type="button" data-action="open-upload" class="mt-6 rounded-full bg-moss px-5 py-2.5 text-sm font-semibold text-[#f6f1e7]">Menü yükle</button>
+          `;
+        } else if (!day) {
+          const near = nearestDate(state.menu.days, today);
+          const nearParts = near ? parseISO(near) : null;
+          body = `
+            <p class="font-display text-4xl leading-tight">Bugün için kayıt yok</p>
+            <p class="mt-3 text-mist">Yüklenen listede ${esc(String(parts.d))} ${esc(MONTHS[parts.m - 1])} satırı bulunmuyor.</p>
+            ${near ? `<button type="button" data-action="goto-date" data-date="${esc(near)}" class="mt-6 rounded-full bg-paper px-4 py-2 text-sm font-medium ring-1 ring-black/5">En yakın menü · ${esc(String(nearParts.d))} ${esc(MONTHS[nearParts.m - 1])}</button>` : ''}
+          `;
+        } else {
+          body = renderMeals(day);
+        }
+        document.getElementById('today-root').innerHTML = `
+          <article id="bugun" class="overflow-hidden rounded-[32px] bg-card shadow-card ring-1 ring-black/5">
+            <div class="grid md:grid-cols-[17rem_minmax(0,1fr)]">
+              <div class="bg-moss px-6 py-7 text-[#f6f1e7] sm:px-8 sm:py-9">
+                <p class="text-xs font-semibold tracking-[0.18em] text-saffron">BUGÜNÜN MENÜSÜ</p>
+                <p class="mt-8 font-display text-2xl">${esc(WEEKDAYS[parts.date.getDay()])}</p>
+                <p class="mt-1 font-display text-8xl leading-none">${esc(String(parts.d))}</p>
+                <p class="mt-3 text-lg text-[#f6f1e7]/75">${esc(MONTHS[parts.m - 1])} ${esc(String(parts.y))}</p>
+              </div>
+              <div class="px-6 py-7 sm:px-8 sm:py-9">${body}</div>
+            </div>
+          </article>
+        `;
+      }
+
+      function monthKeys(y, m) {
+        const prefix = `${y}-${pad(m)}`;
+        return Object.keys(state.menu ? state.menu.days : {}).filter((iso) => iso.startsWith(prefix)).sort();
+      }
+
+      function renderDetail(iso) {
+        const parts = parseISO(iso);
+        const day = state.menu && state.menu.days[iso];
+        const today = iso === todayISO();
+        return `
+          <aside class="rounded-[28px] bg-card p-5 ring-1 ring-black/5 sm:p-6">
+            <p class="text-xs font-semibold tracking-[0.16em] text-mist">${today ? 'BUGÜN' : 'SEÇİLEN GÜN'}</p>
+            <h3 class="mt-2 font-display text-3xl">${esc(String(parts.d))} ${esc(MONTHS[parts.m - 1])}</h3>
+            <p class="text-sm text-mist">${esc(WEEKDAYS[parts.date.getDay()])}</p>
+            <div class="mt-4">${state.menu ? renderMeals(day, 'stack') : '<p class="text-mist">Menü yüklenince günler dolacak.</p>'}</div>
+          </aside>
+        `;
+      }
+
+      function renderCalendar(y, m) {
+        const first = new Date(y, m - 1, 1);
+        const lead = (first.getDay() + 6) % 7;
+        const count = new Date(y, m, 0).getDate();
+        const today = todayISO();
+        const heads = WEEKDAYS_SHORT.map((label, index) => `<div class="px-1 py-2 text-center text-[11px] font-semibold tracking-wide ${index >= 5 ? 'text-clay' : 'text-mist'}">${label}</div>`).join('');
+        let cells = '';
+        for (let i = 0; i < lead; i += 1) cells += '<div></div>';
+        for (let day = 1; day <= count; day += 1) {
+          const iso = isoFromParts(y, m, day);
+          const entry = state.menu && state.menu.days[iso];
+          const selected = iso === state.selected;
+          const isToday = iso === today;
+          const dish = previewDish(entry);
+          const portions = entry && entry.periods ? entry.periods.length : 0;
+          const weekend = new Date(y, m - 1, day).getDay() % 6 === 0;
+          const cls = selected
+            ? 'bg-moss text-[#f6f1e7]'
+            : `${weekend ? 'bg-[#f7f1e8]' : 'bg-card'} ring-1 ring-black/5 hover:ring-moss/30`;
+          const todayMark = isToday && !selected ? 'shadow-[inset_0_0_0_2px_#e39b2b]' : '';
+          cells += `
+            <button type="button" data-action="select-day" data-date="${iso}" title="${esc(entry && entry.closed ? 'Kapalı' : dish)}" class="flex h-[4.4rem] flex-col rounded-2xl px-2 py-1.5 text-left sm:h-[5.6rem] sm:px-2.5 ${cls} ${todayMark}">
+              <span class="text-xs font-semibold ${selected ? 'text-saffron' : ''}">${day}</span>
+              <span class="mt-1 hidden truncate text-[11px] leading-4 sm:block ${selected ? 'text-[#f6f1e7]/85' : 'text-mist'}">${entry && entry.closed ? 'Kapalı' : esc(dish)}</span>
+              ${portions > 1 ? `<span class="mt-auto hidden text-[10px] sm:block ${selected ? 'text-saffron' : 'text-clay'}">${portions} öğün</span>` : ''}
+            </button>
+          `;
+        }
+        return `
+          <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div>
+              <div class="grid grid-cols-7 gap-1.5">${heads}${cells}</div>
+            </div>
+            ${renderDetail(state.selected)}
+          </div>
+        `;
+      }
+
+      function renderList(y, m) {
+        const keys = monthKeys(y, m);
+        if (!state.menu) {
+          return '<div class="rounded-[28px] bg-card px-6 py-10 text-mist ring-1 ring-black/5">Liste, menü yüklendikten sonra burada görünecek.</div>';
+        }
+        if (!keys.length) {
+          return '<div class="rounded-[28px] bg-card px-6 py-10 text-mist ring-1 ring-black/5">Bu ayda kayıtlı gün yok.</div>';
+        }
+        const today = todayISO();
+        return `<div class="flex flex-col gap-3">${keys.map((iso) => {
+          const parts = parseISO(iso);
+          const day = state.menu.days[iso];
+          const selected = iso === state.selected;
+          const lines = day.closed || !day.periods.length
+            ? '<p class="text-mist">Kapalı</p>'
+            : day.periods.map((period) => `
+                <p class="leading-6">
+                  ${period.name ? `<span class="mr-2 text-xs font-semibold tracking-[0.14em] ${selected ? 'text-saffron' : 'text-clay'}">${esc(period.name.toLocaleUpperCase('tr-TR'))}</span>` : ''}
+                  <span>${period.items.map((item) => esc(item.name)).join(' · ')}</span>
+                </p>
+              `).join('');
+          return `
+            <button type="button" data-action="select-day" data-date="${iso}" class="flex gap-4 rounded-[24px] px-4 py-4 text-left ring-1 ring-black/5 ${selected ? 'bg-moss text-[#f6f1e7]' : 'bg-card hover:ring-moss/30'}">
+              <span class="w-14 shrink-0">
+                <span class="block font-display text-3xl leading-none ${selected ? '' : ''}">${parts.d}</span>
+                <span class="text-xs ${selected ? 'text-[#f6f1e7]/70' : 'text-mist'}">${esc(WEEKDAYS_SHORT[(parts.date.getDay() + 6) % 7])}${iso === today ? ' · bugün' : ''}</span>
+              </span>
+              <span class="min-w-0 break-words text-sm sm:text-base">${lines}</span>
+            </button>
+          `;
+        }).join('')}</div>`;
+      }
+
+      function render() {
+        const today = todayISO();
+        if (!state.cursor) {
+          const parts = parseISO(today);
+          state.cursor = { y: parts.y, m: parts.m };
+          state.selected = today;
+        }
+        if (!state.selected) state.selected = today;
+        const meta = document.getElementById('file-meta');
+        const clearBtn = document.getElementById('clear-btn');
+        if (state.menu) {
+          const count = Object.keys(state.menu.days).length;
+          const when = formatSavedAt(state.menu.savedAt);
+          meta.textContent = `${state.menu.fileName} · ${count} gün${when ? ` · ${when}` : ''}`;
+          clearBtn.classList.remove('hidden');
+          clearBtn.textContent = state.confirmClear ? 'Silinsin mi?' : 'Menüyü sil';
+        } else {
+          meta.textContent = 'Henüz yüklü menü yok. Veriler yalnızca bu tarayıcıda durur.';
+          clearBtn.classList.add('hidden');
+          state.confirmClear = false;
+        }
+        renderToday();
+        const { y, m } = state.cursor;
+        document.getElementById('month-label').textContent = `${MONTHS[m - 1]} ${y}`;
+        const keys = monthKeys(y, m);
+        const note = state.menu && state.menu.notes && state.menu.notes.length ? ` · ${state.menu.notes.join(' · ')}` : '';
+        document.getElementById('month-stats').textContent = state.menu
+          ? `${keys.length} gün bu ayda${note}`
+          : 'Ayın tamamı takvimde veya listede';
+        document.getElementById('month-body').innerHTML = state.view === 'list' ? renderList(y, m) : renderCalendar(y, m);
+        const calendarBtn = document.getElementById('view-calendar');
+        const listBtn = document.getElementById('view-list');
+        [calendarBtn, listBtn].forEach((button) => {
+          const on = button.dataset.view === state.view;
+          button.className = `rounded-full px-3 py-1.5 text-sm font-medium ${on ? 'bg-moss text-[#f6f1e7]' : 'text-ink'}`;
+          button.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+
+      let toastTimer = 0;
+      function toast(message, kind) {
+        const el = document.getElementById('toast');
+        el.textContent = message;
+        el.className = `toast show fixed left-1/2 top-20 z-50 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full px-5 py-3 text-center text-sm shadow-card ${kind === 'error' ? 'bg-clay text-white' : 'bg-moss text-[#f6f1e7]'}`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), 4600);
+      }
+
+      function openModal() {
+        document.getElementById('modal').classList.add('is-open');
+      }
+
+      function closeModal() {
+        document.getElementById('modal').classList.remove('is-open');
+        const input = document.getElementById('file-input');
+        if (input) input.value = '';
+      }
+
+      function shiftMonth(delta) {
+        let { y, m } = state.cursor;
+        m += delta;
+        if (m < 1) { m = 12; y -= 1; }
+        if (m > 12) { m = 1; y += 1; }
+        state.cursor = { y, m };
+        const prefix = `${y}-${pad(m)}`;
+        if (!state.selected || !state.selected.startsWith(prefix)) {
+          const keys = monthKeys(y, m);
+          state.selected = keys[0] || isoFromParts(y, m, 1);
+        }
+        render();
+      }
+
+      function selectDate(iso, scroll) {
+        const parts = parseISO(iso);
+        state.cursor = { y: parts.y, m: parts.m };
+        state.selected = iso;
+        render();
+        if (scroll) document.getElementById('ay').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      function handleFile(file) {
+        if (!file) return;
+        const name = file.name || 'menu.xlsx';
+        if (!/\.xlsx?$/i.test(name)) {
+          toast('Yalnızca .xlsx veya .xls dosyaları yüklenebilir.', 'error');
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          toast('Dosya 5 MB sınırını aşıyor.', 'error');
+          return;
+        }
+        if (typeof XLSX === 'undefined') {
+          toast('Excel okuyucu yüklenemedi. Bağlantınızı kontrol edin.', 'error');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const workbook = XLSX.read(new Uint8Array(reader.result), { type: 'array', cellDates: true });
+            const parsed = parseWorkbook(workbook);
+            if (!parsed.ok) {
+              toast(parsed.error, 'error');
+              return;
+            }
+            const stored = {
+              version: 1,
+              fileName: name,
+              savedAt: new Date().toISOString(),
+              days: parsed.days,
+              notes: parsed.notes,
+            };
+            try {
+              saveMenu(stored);
+            } catch (error) {
+              toast('Menü tarayıcıya kaydedilemedi.', 'error');
+              return;
+            }
+            state.menu = stored;
+            state.confirmClear = false;
+            focusMenu(state.menu);
+            const extra = parsed.notes.slice();
+            if (parsed.skipped) extra.push(`${parsed.skipped} satır atlandı`);
+            toast(`Menü kaydedildi · ${parsed.dayCount} gün${extra.length ? ` · ${extra.join(' · ')}` : ''}`);
+            closeModal();
+            render();
+          } catch (error) {
+            toast('Dosya okunamadı. İlk satırda başlıklar olmalı.', 'error');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function downloadTemplate() {
+        if (typeof XLSX === 'undefined') {
+          toast('Excel kütüphanesi yüklenemedi.', 'error');
+          return;
+        }
+        const now = new Date();
+        const y = now.getFullYear();
+        const month = now.getMonth();
+        const rows = [['Tarih', 'Öğün', 'Çorba', 'Ana Yemek', 'Yardımcı Yemek', 'Salata', 'Tatlı']];
+        const days = new Date(y, month + 1, 0).getDate();
+        let index = 0;
+        for (let day = 1; day <= days; day += 1) {
+          const date = new Date(y, month, day);
+          if (date.getDay() === 0 || date.getDay() === 6) continue;
+          const label = `${pad(day)}.${pad(month + 1)}.${y}`;
+          rows.push([label, 'Öğle', ...LUNCH[index % LUNCH.length]]);
+          rows.push([label, 'Akşam', ...DINNER[index % DINNER.length]]);
+          index += 1;
+        }
+        const sheet = XLSX.utils.aoa_to_sheet(rows);
+        sheet['!cols'] = [14, 10, 22, 22, 26, 16, 16].map((wch) => ({ wch }));
+        const book = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(book, sheet, 'Menu');
+        XLSX.writeFile(book, 'yemekhane-sablon.xlsx');
+      }
+
+      function clearMenu() {
+        if (!state.confirmClear) {
+          state.confirmClear = true;
+          render();
+          setTimeout(() => {
+            if (!state.confirmClear) return;
+            state.confirmClear = false;
+            render();
+          }, 3200);
+          return;
+        }
+        localStorage.removeItem(STORAGE_KEY);
+        state.menu = null;
+        state.confirmClear = false;
+        focusMenu(null);
+        toast('Kayıtlı menü silindi.');
+        render();
+      }
+
+      function init() {
+        state.menu = loadMenu();
+        state.view = localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'calendar';
+        focusMenu(state.menu);
+        document.addEventListener('click', (event) => {
+          const target = event.target.closest('[data-action]');
+          if (!target) return;
+          if (target.dataset.action === 'close-modal' && event.target.closest('[data-modal-panel]')) return;
+          const action = target.dataset.action;
+          if (action === 'open-upload') openModal();
+          if (action === 'close-modal') closeModal();
+          if (action === 'template') downloadTemplate();
+          if (action === 'clear') clearMenu();
+          if (action === 'view') {
+            state.view = target.dataset.view;
+            localStorage.setItem(VIEW_KEY, state.view);
+            render();
+          }
+          if (action === 'shift-month') shiftMonth(Number(target.dataset.delta));
+          if (action === 'jump-today') selectDate(todayISO(), false);
+          if (action === 'select-day') {
+            state.selected = target.dataset.date;
+            render();
+          }
+          if (action === 'goto-date') selectDate(target.dataset.date, true);
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') closeModal();
+        });
+        const input = document.getElementById('file-input');
+        input.addEventListener('change', () => {
+          const file = input.files && input.files[0];
+          handleFile(file);
+        });
+        const zone = document.getElementById('dropzone');
+        const hasFiles = (event) => Boolean(event.dataTransfer && [...event.dataTransfer.types].includes('Files'));
+        ['dragenter', 'dragover'].forEach((name) => {
+          window.addEventListener(name, (event) => {
+            if (!hasFiles(event)) return;
+            event.preventDefault();
+            openModal();
+            zone.classList.add('bg-[#efe4cf]');
+          });
+        });
+        window.addEventListener('dragleave', () => zone.classList.remove('bg-[#efe4cf]'));
+        window.addEventListener('drop', (event) => {
+          if (!hasFiles(event)) return;
+          event.preventDefault();
+          zone.classList.remove('bg-[#efe4cf]');
+          const file = event.dataTransfer.files && event.dataTransfer.files[0];
+          handleFile(file);
+        });
+        render();
+      }
+
+      globalThis.YemekhaneApp = { parseWorkbook };
+
+      if (typeof document !== 'undefined' && typeof document.getElementById === 'function') {
+        const start = () => {
+          if (!document.getElementById('today-root')) return;
+          init();
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+        else start();
+      }
+    })();
+  </script>
+  <noscript class="mx-auto block max-w-6xl px-6 py-8">Menüyü görmek için JavaScript gerekir.</noscript>
+</body>
+</html>
