@@ -133,7 +133,7 @@
       <div class="mt-5 rounded-2xl bg-paper px-4 py-3 text-sm leading-6 text-mist">
         <p class="font-medium text-ink">Beklenen sütunlar</p>
         <p class="mt-1">Tarih, Çorba, Ana Yemek, Yardımcı Yemek, Salata, Tatlı. İsteğe bağlı Öğün sütunu Kahvaltı, Öğle ve Akşamı ayırır.</p>
-        <p class="mt-1">Tarih <span class="text-ink">20.10.2026</span> biçiminde, Excel tarih hücresi ya da üstte ay yazıyorsa gün numarası olabilir.</p>
+        <p class="mt-1">Tarih <span class="text-ink">20.10.2026</span> ya da <span class="text-ink">20 Ekim 2026 Salı</span> olabilir. Sütunların üstünde tarih, altında o günün yemekleri de yazabilir.</p>
         <button type="button" data-action="template" class="mt-2 font-medium text-leaf underline decoration-leaf/30 underline-offset-2">Örnek şablonu indir</button>
       </div>
     </div>
@@ -250,9 +250,11 @@
         return MONTHS_FOLDED.some((name) => new RegExp(`\\b${name}\\b`).test(folded)) && /\d/.test(folded);
       }
 
+      let activeDate1904 = false;
+
       function excelSerialToParts(serial) {
         if (typeof XLSX !== 'undefined' && XLSX.SSF && XLSX.SSF.parse_date_code) {
-          const code = XLSX.SSF.parse_date_code(serial);
+          const code = XLSX.SSF.parse_date_code(serial, { date1904: activeDate1904 });
           if (code && code.y) return { y: code.y, m: code.m, d: code.d };
         }
         const utc = new Date(Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000);
@@ -632,6 +634,122 @@
         return { days, skipped };
       }
 
+      function textHasMonth(value) {
+        const folded = fold(cellString(value));
+        return MONTHS_FOLDED.some((name) => new RegExp(`\\b${name}\\b`).test(folded));
+      }
+
+      function displayOrValue(cell) {
+        if (!cell) return null;
+        if (typeof cell.w === 'string' && textHasMonth(cell.w)) return cell.w;
+        if (cell.t === 'n' && typeof cell.v === 'number' && cell.z && XLSX.SSF && XLSX.SSF.is_date && XLSX.SSF.is_date(cell.z)) {
+          const code = XLSX.SSF.parse_date_code(cell.v, { date1904: activeDate1904 });
+          if (code && code.y) return new Date(code.y, code.m - 1, code.d, code.H || 0, code.M || 0, code.S || 0);
+        }
+        return cell.v == null ? null : cell.v;
+      }
+
+      function sheetToRows(sheet) {
+        if (!sheet || !sheet['!ref']) return [];
+        const range = XLSX.utils.decode_range(sheet['!ref']);
+        const rows = [];
+        for (let r = range.s.r; r <= range.e.r; r += 1) {
+          const row = [];
+          for (let c = range.s.c; c <= range.e.c; c += 1) {
+            row.push(displayOrValue(sheet[XLSX.utils.encode_cell({ r, c })]));
+          }
+          rows.push(row);
+        }
+        return rows;
+      }
+
+      function mealLines(value) {
+        if (value == null || value instanceof Date) return [];
+        return String(value)
+          .split(/\r?\n/)
+          .map((line) => line.replace(/\s+/g, ' ').trim())
+          .filter(Boolean);
+      }
+
+      function classifyDish(name) {
+        const folded = fold(name);
+        if (folded.includes('corba')) return 'Çorba';
+        if (/pilav|makarna|eriste|bulgur|pure|kuskus/.test(folded)) return 'Yardımcı';
+        if (/salata|cacik|yogurt|tursu|ayran/.test(folded)) return 'Yan';
+        if (/tatli|sutlac|helva|revani|baklava|komposto|muhallebi|kadayif/.test(folded) || folded === 'meyve') return 'Tatlı';
+        return '';
+      }
+
+      function isPeriodText(value) {
+        const folded = fold(value);
+        return PERIODS.some(([key]) => folded === key);
+      }
+
+      function rowDates(row, ctx, notes, flag) {
+        const found = [];
+        (row || []).forEach((cell, index) => {
+          let iso = parseDateValue(cell, ctx);
+          if (!iso && isDayNumber(cell)) {
+            ensureContext(ctx, notes, flag);
+            iso = parseDateValue(dayNumberOf(cell), ctx);
+          }
+          if (iso) found.push({ index, iso });
+        });
+        if (found.length < 2) return [];
+        const fullDates = found.filter((item) => !isDayNumber(row[item.index]) || looksLikeDate(row[item.index]));
+        if (fullDates.length >= 2) return found;
+        const numbers = found
+          .map((item) => dayNumberOf(row[item.index]))
+          .filter((number) => number >= 1 && number <= 31)
+          .sort((a, b) => a - b);
+        const sequential = numbers.every((number, index) => index === 0 || number - numbers[index - 1] <= 3);
+        if (numbers.length >= 3 && sequential) return found;
+        return [];
+      }
+
+      function parseCalendarGrid(rows, ctx, notes, flag) {
+        const days = {};
+        let sawBlock = false;
+        let index = 0;
+        while (index < rows.length) {
+          const dates = rowDates(rows[index], ctx, notes, flag);
+          if (!dates.length) {
+            index += 1;
+            continue;
+          }
+          sawBlock = true;
+          const colDate = new Map(dates.map((item) => [item.index, item.iso]));
+          const hasLabelCol = !colDate.has(0);
+          index += 1;
+          let period = '';
+          while (index < rows.length && !rowDates(rows[index], ctx, notes, flag).length) {
+            const row = rows[index] || [];
+            index += 1;
+            if (isEmptyRow(row) || isNoteRow(row)) continue;
+            const bannerCells = [];
+            row.forEach((cell, column) => {
+              if (hasLabelCol && column === 0) return;
+              mealLines(cell).forEach((line) => bannerCells.push(line));
+            });
+            if (bannerCells.length && bannerCells.every(isPeriodText)) {
+              period = normalizePeriod(bannerCells[0]);
+              continue;
+            }
+            const label = hasLabelCol ? (cellString(row[0]) || '') : '';
+            const split = label ? splitPeriod(label) : { period: '', category: '' };
+            colDate.forEach((iso, column) => {
+              mealLines(row[column]).forEach((line) => {
+                if (!line || isClosedToken(line) || isPeriodText(line) || parseDateValue(line, ctx)) return;
+                if (WEEKDAY_FOLDED.includes(fold(line))) return;
+                const category = hasLabelCol ? (split.category || 'Menü') : classifyDish(line);
+                addItem(days, iso, split.period || period, category, line);
+              });
+            });
+          }
+        }
+        return sawBlock ? { days, skipped: 0 } : null;
+      }
+
       function pickSheet(workbook) {
         let bestName = workbook.SheetNames[0];
         let bestCount = -1;
@@ -650,21 +768,26 @@
         if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) {
           return { ok: false, error: 'Dosyada sayfa bulunamadı.' };
         }
+        activeDate1904 = Boolean(workbook.Workbook && workbook.Workbook.WBProps && workbook.Workbook.WBProps.date1904);
         const picked = pickSheet(workbook);
-        let rows = XLSX.utils.sheet_to_json(picked.sheet, { header: 1, raw: true, defval: null, blankrows: true });
-        rows = (rows || []).map((row) => (Array.isArray(row) ? row : []));
+        let rows = sheetToRows(picked.sheet);
         const notes = [];
         if (rows.length > 1500) {
           rows = rows.slice(0, 1500);
           notes.push('İlk 1500 satır okundu.');
         }
-        const choice = chooseHeader(rows) || findFallback(rows);
-        if (!choice) return { ok: false, error: 'Tarih sütunu veya başlık satırı bulunamadı.' };
-        const ctx = resolveContext(rows, picked.name, choice.index);
         const flag = { year: false, month: false };
-        const parsed = choice.mode === 'matrix'
-          ? parseMatrix(rows, choice, ctx, notes, flag)
-          : parseColumnar(rows, choice, ctx, notes, flag);
+        const ctx = resolveContext(rows, picked.name, Math.min(rows.length, 8) - 1);
+        const calendar = parseCalendarGrid(rows, ctx, notes, flag);
+        let parsed = calendar && Object.keys(calendar.days).length ? calendar : null;
+        if (!parsed) {
+          const choice = chooseHeader(rows) || findFallback(rows);
+          if (!choice) return { ok: false, error: 'Tarih sütunu veya başlık satırı bulunamadı.' };
+          const columnarCtx = resolveContext(rows, picked.name, choice.index);
+          parsed = choice.mode === 'matrix'
+            ? parseMatrix(rows, choice, columnarCtx, notes, flag)
+            : parseColumnar(rows, choice, columnarCtx, notes, flag);
+        }
         const days = finalizeDays(parsed.days);
         const dayCount = Object.keys(days).length;
         if (!dayCount) return { ok: false, error: 'Dosyada tarihli yemek satırı bulunamadı.' };
@@ -706,8 +829,10 @@
 
       function previewDish(day) {
         if (!day || day.closed || !day.periods.length) return '';
-        const items = day.periods[0].items;
-        const main = items.find((item) => /ana/.test(fold(item.category))) || items[0];
+        const items = day.periods.flatMap((period) => period.items);
+        const main = items.find((item) => /ana/.test(fold(item.category)))
+          || items.find((item) => !fold(item.name).includes('corba') && !fold(item.category).includes('corba'))
+          || items[0];
         return main ? main.name : '';
       }
 
@@ -729,17 +854,23 @@
           <section class="${stacked ? 'mb-5' : 'mb-6'} last:mb-0">
             ${period.name ? `<h3 class="mb-2 text-xs font-semibold tracking-[0.16em] text-clay">${esc(period.name.toLocaleUpperCase('tr-TR'))}</h3>` : ''}
             <ul>
-              ${period.items.map((item) => stacked ? `
+              ${period.items.map((item) => {
+          const category = item.category && fold(item.category) !== 'menu' ? item.category : '';
+          if (!category) {
+            return `<li class="border-b border-black/5 py-2 last:border-0"><span class="block font-display ${stacked ? 'text-lg' : 'text-xl sm:text-2xl'} leading-snug">${esc(item.name)}</span></li>`;
+          }
+          return stacked ? `
                 <li class="border-b border-black/5 py-2 last:border-0">
-                  <span class="block text-[11px] font-semibold tracking-[0.14em] text-mist">${esc(item.category.toLocaleUpperCase('tr-TR'))}</span>
+                  <span class="block text-[11px] font-semibold tracking-[0.14em] text-mist">${esc(category.toLocaleUpperCase('tr-TR'))}</span>
                   <span class="mt-0.5 block font-display text-lg leading-snug">${esc(item.name)}</span>
                 </li>
               ` : `
                 <li class="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3 border-b border-black/5 py-2.5 last:border-0 sm:grid-cols-[9.5rem_minmax(0,1fr)]">
-                  <span class="pt-1 text-xs font-semibold tracking-[0.12em] text-mist">${esc(item.category.toLocaleUpperCase('tr-TR'))}</span>
+                  <span class="pt-1 text-xs font-semibold tracking-[0.12em] text-mist">${esc(category.toLocaleUpperCase('tr-TR'))}</span>
                   <span class="font-display text-xl leading-snug sm:text-2xl">${esc(item.name)}</span>
                 </li>
-              `).join('')}
+              `;
+        }).join('')}
             </ul>
           </section>
         `).join('');
