@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Yemekhane · Aylık Menü</title>
-  <meta name="description" content="Aylık yemek listesini Excel’den yükleyin. Bugünün menüsü ve ayın tamamı tarayıcınızda kalsın." />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231e3a30'/%3E%3Cpath d='M18 28h28c1 8-4 16-14 16S17 36 18 28z' fill='%23f3eee6'/%3E%3Cpath d='M24 22c0-3 2-6 8-6s8 3 8 6' fill='none' stroke='%23e39b2b' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <title>Tepe Kurumsal · Yemekhane</title>
+  <meta name="description" content="Tepe Kurumsal yemekhane menüsü. Aylık listeyi Excel’den yükleyin, bugünün yemekleri tarihe göre açılsın." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23E31C24'/%3E%3Cpath fill='%23fff' d='M10 16h28v8H22v24h-8V24h-4zM40 16h14v8H46v6h8v7h-8v7h8v8H40v-8h6v-7h-6v-6h6z'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,620&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -15,21 +15,21 @@
       theme: {
         extend: {
           colors: {
-            paper: '#f3eee6',
-            card: '#fffdf9',
-            ink: '#1c1914',
-            moss: '#1e3a30',
-            leaf: '#2f5b48',
-            saffron: '#e39b2b',
-            clay: '#b85a32',
-            mist: '#6e675e',
+            paper: '#f4f4f4',
+            card: '#ffffff',
+            ink: '#1a1a1a',
+            moss: '#E31C24',
+            leaf: '#E31C24',
+            saffron: '#ffffff',
+            clay: '#E31C24',
+            mist: '#5c5c5c',
           },
           fontFamily: {
             sans: ['Outfit', 'system-ui', 'sans-serif'],
             display: ['Fraunces', 'Georgia', 'serif'],
           },
           boxShadow: {
-            card: '0 30px 70px -42px rgba(30, 58, 48, 0.55)',
+            card: '0 30px 70px -42px rgba(227, 28, 36, 0.45)',
           },
         },
       },
@@ -37,10 +37,10 @@
   </script>
   <style>
     body {
-      background-color: #f3eee6;
+      background-color: #f6f6f6;
       background-image:
-        radial-gradient(ellipse at 0% -10%, rgba(227, 155, 43, 0.18), transparent 42%),
-        radial-gradient(ellipse at 100% 0%, rgba(47, 91, 72, 0.12), transparent 34%);
+        radial-gradient(ellipse at 0% -8%, rgba(227, 28, 36, 0.08), transparent 42%),
+        radial-gradient(ellipse at 100% 0%, rgba(227, 28, 36, 0.05), transparent 36%);
     }
     .modal { display: none; }
     .modal.is-open { display: flex; }
@@ -60,24 +60,28 @@
   </style>
 </head>
 <body class="min-h-screen font-sans text-ink antialiased">
-  <header class="bg-moss text-[#f6f1e7]">
-    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-      <a href="#bugun" class="flex items-center gap-3">
-        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-[#f6f1e7] text-moss">
-          <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true">
-            <path d="M14 30h36c1.2 10-6 20-18 20S12.8 40 14 30z" fill="currentColor"/>
-            <path d="M22 24c0-4 3-8 10-8s10 4 10 8" fill="none" stroke="#e39b2b" stroke-width="4" stroke-linecap="round"/>
-          </svg>
-        </span>
-        <span>
+  <header class="border-b border-black/5 bg-white">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <a href="#bugun" class="flex items-center gap-3 sm:gap-4">
+        <svg class="h-12 w-auto text-moss sm:h-14" viewBox="0 0 438 168" fill="currentColor" role="img" aria-label="Tepe Kurumsal">
+          <path d="M3 3h191a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3H68v84a3 3 0 0 1-3 3H47a3 3 0 0 1-3-3V22H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z"/>
+          <rect x="109" y="44" width="88" height="21" rx="3"/>
+          <rect x="109" y="88" width="88" height="21" rx="3"/>
+          <path fill-rule="evenodd" d="M222 3h86a18 18 0 0 1 18 18v26a18 18 0 0 1-18 18h-64v41a3 3 0 0 1-3 3h-18a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm19 19h64a4 4 0 0 1 4 4v18a4 4 0 0 1-4 4h-64V22z"/>
+          <rect x="351" y="0" width="87" height="22" rx="3"/>
+          <rect x="351" y="44" width="87" height="21" rx="3"/>
+          <rect x="351" y="88" width="87" height="21" rx="3"/>
+          <text x="219" y="154" text-anchor="middle" font-family="Outfit, Arial, sans-serif" font-size="22" font-weight="600" letter-spacing="32">KURUMSAL</text>
+        </svg>
+        <span class="hidden border-l border-black/10 pl-4 sm:block">
           <span class="block font-display text-2xl leading-none">Yemekhane</span>
-          <span class="mt-1 block text-xs tracking-[0.16em] text-[#f6f1e7]/70">AYLIK MENÜ</span>
+          <span class="mt-1 block text-xs tracking-[0.16em] text-mist">AYLIK MENÜ</span>
         </span>
       </a>
       <div class="flex flex-wrap items-center gap-2">
-        <button type="button" data-action="template" class="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-[#f6f1e7] hover:bg-white/10">Şablon</button>
-        <button type="button" data-action="open-upload" class="rounded-full bg-saffron px-4 py-2 text-sm font-semibold text-ink hover:brightness-105">Menü yükle</button>
-        <button type="button" id="clear-btn" data-action="clear" class="hidden rounded-full px-4 py-2 text-sm font-medium text-[#f6f1e7]/80 hover:bg-white/10">Menüyü sil</button>
+        <button type="button" data-action="template" class="rounded-full border border-moss/25 px-4 py-2 text-sm font-medium text-moss hover:bg-moss/5">Şablon</button>
+        <button type="button" data-action="open-upload" class="rounded-full bg-moss px-4 py-2 text-sm font-semibold text-white hover:brightness-105">Menü yükle</button>
+        <button type="button" id="clear-btn" data-action="clear" class="hidden rounded-full px-4 py-2 text-sm font-medium text-ink/70 hover:bg-black/5">Menüyü sil</button>
       </div>
     </div>
   </header>
@@ -139,7 +143,7 @@
     </div>
   </div>
 
-  <div id="toast" class="toast fixed left-1/2 top-20 z-50 max-w-md -translate-x-1/2 rounded-full bg-moss px-5 py-3 text-center text-sm text-[#f6f1e7] shadow-card" role="status"></div>
+  <div id="toast" class="toast fixed left-1/2 top-36 z-50 max-w-md -translate-x-1/2 rounded-full bg-moss px-5 py-3 text-center text-sm text-white shadow-card sm:top-20" role="status"></div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script id="app">
@@ -973,7 +977,7 @@
           body = `
             <p class="font-display text-4xl leading-tight">Listenizi ekleyin</p>
             <p class="mt-3 max-w-xl text-base leading-7 text-mist">Aylık yemek listesini Excel olarak yükleyin. Bugünün yemekleri tarihe göre kendiliğinden burada açılır.</p>
-            <button type="button" data-action="open-upload" class="mt-6 rounded-full bg-moss px-5 py-2.5 text-sm font-semibold text-[#f6f1e7]">Menü yükle</button>
+            <button type="button" data-action="open-upload" class="mt-6 rounded-full bg-moss px-5 py-2.5 text-sm font-semibold text-[#ffffff]">Menü yükle</button>
           `;
         } else if (!day) {
           const near = nearestDate(state.menu.days, today);
@@ -989,11 +993,11 @@
         document.getElementById('today-root').innerHTML = `
           <article id="bugun" class="overflow-hidden rounded-[32px] bg-card shadow-card ring-1 ring-black/5">
             <div class="grid md:grid-cols-[17rem_minmax(0,1fr)]">
-              <div class="bg-moss px-6 py-7 text-[#f6f1e7] sm:px-8 sm:py-9">
+              <div class="bg-moss px-6 py-7 text-[#ffffff] sm:px-8 sm:py-9">
                 <p class="text-xs font-semibold tracking-[0.18em] text-saffron">BUGÜNÜN MENÜSÜ</p>
                 <p class="mt-8 font-display text-2xl">${esc(WEEKDAYS[parts.date.getDay()])}</p>
                 <p class="mt-1 font-display text-8xl leading-none">${esc(String(parts.d))}</p>
-                <p class="mt-3 text-lg text-[#f6f1e7]/75">${esc(MONTHS[parts.m - 1])} ${esc(String(parts.y))}</p>
+                <p class="mt-3 text-lg text-[#ffffff]/75">${esc(MONTHS[parts.m - 1])} ${esc(String(parts.y))}</p>
               </div>
               <div class="px-6 py-7 sm:px-8 sm:py-9">${body}</div>
             </div>
@@ -1037,13 +1041,13 @@
           const portions = entry && entry.periods ? entry.periods.length : 0;
           const weekend = new Date(y, m - 1, day).getDay() % 6 === 0;
           const cls = selected
-            ? 'bg-moss text-[#f6f1e7]'
-            : `${weekend ? 'bg-[#f7f1e8]' : 'bg-card'} ring-1 ring-black/5 hover:ring-moss/30`;
-          const todayMark = isToday && !selected ? 'shadow-[inset_0_0_0_2px_#e39b2b]' : '';
+            ? 'bg-moss text-[#ffffff]'
+            : `${weekend ? 'bg-[#fdeced]' : 'bg-card'} ring-1 ring-black/5 hover:ring-moss/30`;
+          const todayMark = isToday && !selected ? 'shadow-[inset_0_0_0_2px_#E31C24]' : '';
           cells += `
             <button type="button" data-action="select-day" data-date="${iso}" title="${esc(entry && entry.closed ? 'Kapalı' : dish)}" class="flex h-[4.4rem] flex-col rounded-2xl px-2 py-1.5 text-left sm:h-[5.6rem] sm:px-2.5 ${cls} ${todayMark}">
               <span class="text-xs font-semibold ${selected ? 'text-saffron' : ''}">${day}</span>
-              <span class="mt-1 hidden truncate text-[11px] leading-4 sm:block ${selected ? 'text-[#f6f1e7]/85' : 'text-mist'}">${entry && entry.closed ? 'Kapalı' : esc(dish)}</span>
+              <span class="mt-1 hidden truncate text-[11px] leading-4 sm:block ${selected ? 'text-[#ffffff]/85' : 'text-mist'}">${entry && entry.closed ? 'Kapalı' : esc(dish)}</span>
               ${portions > 1 ? `<span class="mt-auto hidden text-[10px] sm:block ${selected ? 'text-saffron' : 'text-clay'}">${portions} öğün</span>` : ''}
             </button>
           `;
@@ -1080,10 +1084,10 @@
                 </p>
               `).join('');
           return `
-            <button type="button" data-action="select-day" data-date="${iso}" class="flex gap-4 rounded-[24px] px-4 py-4 text-left ring-1 ring-black/5 ${selected ? 'bg-moss text-[#f6f1e7]' : 'bg-card hover:ring-moss/30'}">
+            <button type="button" data-action="select-day" data-date="${iso}" class="flex gap-4 rounded-[24px] px-4 py-4 text-left ring-1 ring-black/5 ${selected ? 'bg-moss text-[#ffffff]' : 'bg-card hover:ring-moss/30'}">
               <span class="w-14 shrink-0">
                 <span class="block font-display text-3xl leading-none ${selected ? '' : ''}">${parts.d}</span>
-                <span class="text-xs ${selected ? 'text-[#f6f1e7]/70' : 'text-mist'}">${esc(WEEKDAYS_SHORT[(parts.date.getDay() + 6) % 7])}${iso === today ? ' · bugün' : ''}</span>
+                <span class="text-xs ${selected ? 'text-[#ffffff]/70' : 'text-mist'}">${esc(WEEKDAYS_SHORT[(parts.date.getDay() + 6) % 7])}${iso === today ? ' · bugün' : ''}</span>
               </span>
               <span class="min-w-0 break-words text-sm sm:text-base">${lines}</span>
             </button>
@@ -1125,7 +1129,7 @@
         const listBtn = document.getElementById('view-list');
         [calendarBtn, listBtn].forEach((button) => {
           const on = button.dataset.view === state.view;
-          button.className = `rounded-full px-3 py-1.5 text-sm font-medium ${on ? 'bg-moss text-[#f6f1e7]' : 'text-ink'}`;
+          button.className = `rounded-full px-3 py-1.5 text-sm font-medium ${on ? 'bg-moss text-[#ffffff]' : 'text-ink'}`;
           button.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
       }
@@ -1134,7 +1138,7 @@
       function toast(message, kind) {
         const el = document.getElementById('toast');
         el.textContent = message;
-        el.className = `toast show fixed left-1/2 top-20 z-50 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full px-5 py-3 text-center text-sm shadow-card ${kind === 'error' ? 'bg-clay text-white' : 'bg-moss text-[#f6f1e7]'}`;
+        el.className = `toast show fixed left-1/2 top-36 z-50 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full px-5 py-3 text-center text-sm shadow-card sm:top-20 ${kind === 'error' ? 'bg-[#7f1d1d] text-white' : 'bg-moss text-white'}`;
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => el.classList.remove('show'), 4600);
       }
