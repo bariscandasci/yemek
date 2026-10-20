@@ -4,6 +4,8 @@ Aylık yemek listesini Excel dosyasından okuyup tarayıcıda gösteren tek sayf
 
 `index.html` dosyasını açın. Tailwind ve SheetJS bir CDN üzerinden gelir, bu yüzden ilk açılışta internet gerekir.
 
+Vercel bu depoyu statik site olarak yayınlar. Kök dizin `index.html` dosyasıdır; ayrıca bir derleme adımı yoktur.
+
 ## Excel biçimi
 
 İlk satır başlık olmalıdır.
