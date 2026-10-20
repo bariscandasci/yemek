@@ -148,6 +148,7 @@
       const VIEW_KEY = 'yemekhane.view';
       const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
       const MONTHS_FOLDED = ['ocak', 'subat', 'mart', 'nisan', 'mayis', 'haziran', 'temmuz', 'agustos', 'eylul', 'ekim', 'kasim', 'aralik'];
+      const MONTHS_EN = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
       const WEEKDAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
       const WEEKDAYS_SHORT = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
       const WEEKDAY_FOLDED = ['pazartesi', 'sali', 'carsamba', 'persembe', 'cuma', 'cumartesi', 'pazar'];
@@ -286,9 +287,9 @@
           if (month > 12 && day <= 12) [day, month] = [month, day];
           return validISO(year, month, day);
         }
-        const folded = fold(text);
-        const monthIndex = MONTHS_FOLDED.findIndex((name) => new RegExp(`\\b${name}\\b`).test(folded));
+        const monthIndex = monthIndexFromText(text);
         if (monthIndex >= 0) {
+          const folded = fold(text);
           const yearMatch = folded.match(/\b(20\d{2})\b/);
           const dayMatch = folded.match(/\b(\d{1,2})\b/);
           if (dayMatch) {
@@ -398,11 +399,9 @@
           for (const cell of rows[i] || []) chunks.push(fold(cellString(cell)));
         }
         const text = chunks.join(' ');
-        let month = null;
+        const months = monthIndexesIn(text);
+        const month = months.length ? months[0] : null;
         let year = null;
-        MONTHS_FOLDED.forEach((name, index) => {
-          if (month == null && new RegExp(`\\b${name}\\b`).test(text)) month = index + 1;
-        });
         const yearMatch = text.match(/\b(20\d{2})\b/);
         if (yearMatch) year = +yearMatch[1];
         return { month, year };
@@ -634,9 +633,34 @@
         return { days, skipped };
       }
 
+      function monthIndexFromText(value) {
+        const folded = fold(value);
+        const turkish = MONTHS_FOLDED.findIndex((name) => new RegExp(`\\b${name}\\b`).test(folded));
+        if (turkish >= 0) return turkish;
+        return MONTHS_EN.findIndex((name) => new RegExp(`\\b${name}\\b`).test(folded));
+      }
+
+      function monthIndexesIn(text) {
+        const folded = fold(text);
+        const found = [];
+        MONTHS_FOLDED.forEach((name, index) => {
+          if (new RegExp(`\\b${name}\\b`).test(folded)) found.push(index + 1);
+        });
+        if (!found.length) {
+          MONTHS_EN.forEach((name, index) => {
+            if (new RegExp(`\\b${name}\\b`).test(folded)) found.push(index + 1);
+          });
+        }
+        return found;
+      }
+
+      function yearIn(text) {
+        const match = fold(text).match(/\b(20\d{2})\b/);
+        return match ? +match[1] : null;
+      }
+
       function textHasMonth(value) {
-        const folded = fold(cellString(value));
-        return MONTHS_FOLDED.some((name) => new RegExp(`\\b${name}\\b`).test(folded));
+        return monthIndexFromText(value) >= 0;
       }
 
       function displayOrValue(cell) {
@@ -649,13 +673,20 @@
         return cell.v == null ? null : cell.v;
       }
 
-      function sheetToRows(sheet) {
+      function sheetToRows(sheet, skipHidden) {
         if (!sheet || !sheet['!ref']) return [];
         const range = XLSX.utils.decode_range(sheet['!ref']);
         const rows = [];
+        const rowInfo = sheet['!rows'] || [];
+        const colInfo = sheet['!cols'] || [];
         for (let r = range.s.r; r <= range.e.r; r += 1) {
+          if (skipHidden !== false && rowInfo[r] && rowInfo[r].hidden) continue;
           const row = [];
           for (let c = range.s.c; c <= range.e.c; c += 1) {
+            if (skipHidden !== false && colInfo[c] && colInfo[c].hidden) {
+              row.push(null);
+              continue;
+            }
             row.push(displayOrValue(sheet[XLSX.utils.encode_cell({ r, c })]));
           }
           rows.push(row);
@@ -750,40 +781,45 @@
         return sawBlock ? { days, skipped: 0 } : null;
       }
 
-      function pickSheet(workbook) {
-        let bestName = workbook.SheetNames[0];
-        let bestCount = -1;
-        workbook.SheetNames.forEach((name) => {
-          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: null });
-          const count = rows.filter((row) => (row || []).some((cell) => cell != null && String(cell).trim() !== '')).length;
-          if (count > bestCount) {
-            bestName = name;
-            bestCount = count;
-          }
-        });
-        return { name: bestName, sheet: workbook.Sheets[bestName] };
+      function isHiddenSheet(workbook, index) {
+        const meta = workbook.Workbook && workbook.Workbook.Sheets && workbook.Workbook.Sheets[index];
+        return Boolean(meta && Number(meta.Hidden) > 0);
       }
 
-      function parseWorkbook(workbook) {
-        if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) {
-          return { ok: false, error: 'Dosyada sayfa bulunamadı.' };
-        }
-        activeDate1904 = Boolean(workbook.Workbook && workbook.Workbook.WBProps && workbook.Workbook.WBProps.date1904);
-        const picked = pickSheet(workbook);
-        let rows = sheetToRows(picked.sheet);
+      function majorityMonth(days) {
+        const counts = {};
+        Object.keys(days || {}).forEach((iso) => {
+          const key = iso.slice(0, 7);
+          counts[key] = (counts[key] || 0) + 1;
+        });
+        let best = null;
+        let count = 0;
+        Object.entries(counts).forEach(([key, value]) => {
+          if (value > count) {
+            best = key;
+            count = value;
+          }
+        });
+        if (!best) return null;
+        const [y, m] = best.split('-').map(Number);
+        return { y, m, count };
+      }
+
+      function parseSheet(sheet, sheetName, skipHidden) {
+        let rows = sheetToRows(sheet, skipHidden);
         const notes = [];
         if (rows.length > 1500) {
           rows = rows.slice(0, 1500);
           notes.push('İlk 1500 satır okundu.');
         }
         const flag = { year: false, month: false };
-        const ctx = resolveContext(rows, picked.name, Math.min(rows.length, 8) - 1);
+        const ctx = resolveContext(rows, sheetName, Math.min(rows.length, 8) - 1);
         const calendar = parseCalendarGrid(rows, ctx, notes, flag);
         let parsed = calendar && Object.keys(calendar.days).length ? calendar : null;
         if (!parsed) {
           const choice = chooseHeader(rows) || findFallback(rows);
           if (!choice) return { ok: false, error: 'Tarih sütunu veya başlık satırı bulunamadı.' };
-          const columnarCtx = resolveContext(rows, picked.name, choice.index);
+          const columnarCtx = resolveContext(rows, sheetName, choice.index);
           parsed = choice.mode === 'matrix'
             ? parseMatrix(rows, choice, columnarCtx, notes, flag)
             : parseColumnar(rows, choice, columnarCtx, notes, flag);
@@ -792,6 +828,57 @@
         const dayCount = Object.keys(days).length;
         if (!dayCount) return { ok: false, error: 'Dosyada tarihli yemek satırı bulunamadı.' };
         return { ok: true, days, skipped: parsed.skipped, notes, dayCount };
+      }
+
+      function sheetScore(entry, fileMonth, fileYear) {
+        const count = Object.keys(entry.parsed.days || {}).length;
+        const majority = majorityMonth(entry.parsed.days);
+        const sheetMonths = monthIndexesIn(entry.item.name);
+        let score = Math.min(count, 40);
+        if (fileMonth && sheetMonths.includes(fileMonth)) score += 1000;
+        if (fileMonth && majority && majority.m === fileMonth) score += 800;
+        if (fileYear && majority && majority.y === fileYear && (!fileMonth || majority.m === fileMonth)) score += 200;
+        if (sheetMonths.length && majority && sheetMonths.includes(majority.m)) score += 300;
+        if (!entry.item.hidden) score += 50;
+        return score;
+      }
+
+      function parseWorkbook(workbook, fileName) {
+        if (!workbook || !workbook.SheetNames || !workbook.SheetNames.length) {
+          return { ok: false, error: 'Dosyada sayfa bulunamadı.' };
+        }
+        activeDate1904 = Boolean(workbook.Workbook && workbook.Workbook.WBProps && workbook.Workbook.WBProps.date1904);
+        const fileLabel = fileName || '';
+        const fileMonths = monthIndexesIn(fileLabel);
+        const fileMonth = fileMonths.length ? fileMonths[0] : null;
+        const fileYear = yearIn(fileLabel);
+        const entries = workbook.SheetNames.map((name, index) => ({
+          name,
+          index,
+          hidden: isHiddenSheet(workbook, index),
+        }));
+        const visible = entries.filter((item) => !item.hidden);
+        const readPool = (list, skipHidden) => list
+          .map((item) => ({ item, parsed: parseSheet(workbook.Sheets[item.name], item.name, skipHidden) }))
+          .filter((entry) => entry.parsed.ok);
+        let pool = visible.length ? visible : entries;
+        let parsedPool = readPool(pool, true);
+        if (!parsedPool.length) parsedPool = readPool(pool, false);
+        if (!parsedPool.length && visible.length && visible.length !== entries.length) {
+          pool = entries;
+          parsedPool = readPool(entries, true);
+          if (!parsedPool.length) parsedPool = readPool(entries, false);
+        }
+        if (!parsedPool.length) {
+          return { ok: false, error: 'Tarih sütunu veya başlık satırı bulunamadı.' };
+        }
+        parsedPool.sort((a, b) => sheetScore(b, fileMonth, fileYear) - sheetScore(a, fileMonth, fileYear) || a.item.index - b.item.index);
+        const chosen = parsedPool[0];
+        const winner = chosen.parsed;
+        if (workbook.SheetNames.length > 1) {
+          winner.notes = [`${chosen.item.name} sayfası okundu.`].concat(winner.notes || []);
+        }
+        return winner;
       }
 
       function loadMenu() {
@@ -1103,7 +1190,7 @@
         reader.onload = () => {
           try {
             const workbook = XLSX.read(new Uint8Array(reader.result), { type: 'array', cellDates: true });
-            const parsed = parseWorkbook(workbook);
+            const parsed = parseWorkbook(workbook, name);
             if (!parsed.ok) {
               toast(parsed.error, 'error');
               return;
